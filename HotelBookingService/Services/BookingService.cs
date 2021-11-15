@@ -32,22 +32,24 @@ namespace HotelBookingLibrary.Services
         public async Task<IEnumerable<AvailableRoomsDto>> CheckRoomAvailability(BookingRequestDto bookingRequest)
         {
             //get hotel
-            var hotel = await hotelRepository.GetHotel(bookingRequest.HotelId);
+           // var hotel = await hotelRepository.GetHotel(bookingRequest.HotelId);
 
             var hotelRooms = await hotelRepository.GetHotelRooms(bookingRequest.HotelId);
 
+            var bookings = await bookingRepository.GetBookings(bookingRequest.HotelId);
+
             //get existing overlapping bookings for hotel 
-            var existingBookings = hotel.Bookings?.Where(x => (x.StartDate >= bookingRequest.DateFrom 
+            var existingBookings = bookings?.Where(x => (x.StartDate >= bookingRequest.DateFrom 
                                                                 && x.StartDate <= bookingRequest.DateTo)
                                                             || (x.EndDate >= bookingRequest.DateFrom 
                                                                 && x.EndDate <= bookingRequest.DateTo)).SelectMany(x => x.RoomCalendars).ToList();
 
-            var bookedRooms = existingBookings?.Select(x => x.HotelRoom.HotelRoomId).ToList();
-
-            if (bookedRooms != null && bookedRooms.Any())
+            if (existingBookings != null && existingBookings.Any())
             {
+                var bookedRoomIds = existingBookings?.Select(x => x.HotelRoom.HotelRoomId).ToList();
+
                 //determine if remaining capacity can accomodate the booking party
-                var remainingRooms = hotelRooms.Where(x => !bookedRooms.Contains(x.HotelRoomId)).ToList();
+                var remainingRooms = hotelRooms.Where(x => !bookedRoomIds.Contains(x.HotelRoomId)).ToList();
 
                 if (remainingRooms.Where(x => (bookingRequest.RoomTypeId == null || bookingRequest.RoomTypeId == 0) || x.RoomType.RoomTypeId == bookingRequest.RoomTypeId).Select(x => x.RoomType.MaxOccupancy).Sum() >= bookingRequest.NumberOfGuests)
                 {

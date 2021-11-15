@@ -1,4 +1,5 @@
 ﻿using HotelBookingLibrary.Models;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace HotelBookingLibrary.Repositories.Interfaces
@@ -7,5 +8,6 @@ namespace HotelBookingLibrary.Repositories.Interfaces
     {
         Task CreateBooking(Booking booking);
         Task<Booking> GetBooking(string bookingReference);
+        Task<IEnumerable<Booking>> GetBookings(int hotelId);
     }
 }
