@@ -34,22 +34,29 @@ namespace HotelBookingLibrary.Services
             //get hotel
             var hotel = await hotelRepository.GetHotel(bookingRequest.HotelId);
 
+            var hotelRooms = await hotelRepository.GetHotelRooms(bookingRequest.HotelId);
+
             //get existing overlapping bookings for hotel 
-            var existingBookings = hotel.Bookings.Where(x => (x.StartDate >= bookingRequest.DateFrom 
+            var existingBookings = hotel.Bookings?.Where(x => (x.StartDate >= bookingRequest.DateFrom 
                                                                 && x.StartDate <= bookingRequest.DateTo)
                                                             || (x.EndDate >= bookingRequest.DateFrom 
                                                                 && x.EndDate <= bookingRequest.DateTo)).SelectMany(x => x.RoomCalendars).ToList();
 
-            var bookedRooms = existingBookings.Select(x => x.HotelRoom.HotelRoomId).ToList();
+            var bookedRooms = existingBookings?.Select(x => x.HotelRoom.HotelRoomId).ToList();
 
-            //determine if remaining capacity can accomodate the booking party
-            var remainingRooms = hotel.HotelRooms.Where(x => !bookedRooms.Contains(x.HotelRoomId)).ToList();
-            
-            if(remainingRooms.Select(x => x.RoomType.MaxOccupancy).Sum() >= bookingRequest.NumberOfGuests)
+            if (bookedRooms != null && bookedRooms.Any())
             {
-                //return available rooms to book
-                return mapper.Map<IEnumerable<HotelRoom>,IEnumerable<AvailableRoomsDto>>(remainingRooms.ToList());
+                //determine if remaining capacity can accomodate the booking party
+                var remainingRooms = hotelRooms.Where(x => !bookedRooms.Contains(x.HotelRoomId)).ToList();
+
+                if (remainingRooms.Where(x => (bookingRequest.RoomTypeId == null || bookingRequest.RoomTypeId == 0) || x.RoomType.RoomTypeId == bookingRequest.RoomTypeId).Select(x => x.RoomType.MaxOccupancy).Sum() >= bookingRequest.NumberOfGuests)
+                {
+                    //return available rooms to book
+                    return mapper.Map<IEnumerable<HotelRoom>, IEnumerable<AvailableRoomsDto>>(remainingRooms.Where(x => (bookingRequest.RoomTypeId == null || bookingRequest.RoomTypeId == 0) || x.RoomType.RoomTypeId == bookingRequest.RoomTypeId).ToList());
+                }
             }
+            else
+                return mapper.Map<IEnumerable<HotelRoom>, IEnumerable<AvailableRoomsDto>>(hotelRooms.Where(x => (bookingRequest.RoomTypeId == null || bookingRequest.RoomTypeId == 0) || x.RoomType.RoomTypeId == bookingRequest.RoomTypeId).ToList());
 
             return null;
         }
@@ -64,6 +71,7 @@ namespace HotelBookingLibrary.Services
 
             //Build booking request
             var booking = await BuildBooking(bookingRequest);
+            booking.RoomCalendars = await ReserveRooms(bookingRequest, booking);
 
             //create booking
             await bookingRepository.CreateBooking(booking);
@@ -81,10 +89,36 @@ namespace HotelBookingLibrary.Services
                 StartDate = bookingRequest.DateFrom,
                 EndDate = bookingRequest.DateTo,
                 NumberOfGuests = bookingRequest.NumberOfGuests,
-                BookingReference = $"{hotel.ShortCode}{bookingRequest.DateFrom.ToString("yyyyMMdd")}",
+                ReservationName = bookingRequest.ReservationName,
+                BookingReference = $"{hotel.ShortCode}{bookingRequest.DateFrom.ToString("yyyyMMdd")}{hotel.Bookings.Count}",
                 Hotel = hotel
             };
             return booking;
+        }
+
+        private async Task<List<RoomCalendar>> ReserveRooms(BookingRequestDto bookingRequest, Booking booking)
+        {
+            var hotelRooms = await hotelRepository.GetHotelRooms(bookingRequest.HotelId);
+
+            if(bookingRequest.RoomTypeId != null && bookingRequest.RoomTypeId != 0)
+                hotelRooms = hotelRooms.Where(x => x.RoomType.RoomTypeId == bookingRequest.RoomTypeId).ToList();
+
+            List<RoomCalendar> reservedRooms = new List<RoomCalendar>();
+
+            int i = 0;
+
+            while (i < bookingRequest.NumberOfGuests)
+            {
+                reservedRooms.Add(new RoomCalendar()
+                {
+                    Booking = booking,
+                    HotelRoom = bookingRequest.NumberOfGuests > 1 ? hotelRooms.OrderByDescending(x => x.RoomType.MaxOccupancy).First() : hotelRooms.OrderBy(x => x.RoomType.MaxOccupancy).First()
+                });
+
+                i = reservedRooms.Select(x => x.HotelRoom.RoomType.MaxOccupancy).Sum();
+            }
+
+            return reservedRooms;
         }
     }
 }

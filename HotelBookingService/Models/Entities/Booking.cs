@@ -16,6 +16,8 @@ namespace HotelBookingLibrary.Models
         public DateTime EndDate { get; set; }
         [Required]
         public int NumberOfGuests { get; set; }
+        [Required]
+        public string ReservationName { get; set; }
 
         public Hotel Hotel { get; set; }
 

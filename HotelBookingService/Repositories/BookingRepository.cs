@@ -21,12 +21,13 @@ namespace HotelBookingLibrary.Repositories
 
         public async Task<Booking> GetBooking(string bookingReference)
         {
-            return await mainContext.Bookings.SingleOrDefaultAsync(x => x.BookingReference == bookingReference);
+            return await mainContext.Bookings.Include(x => x.Hotel).SingleOrDefaultAsync(x => x.BookingReference == bookingReference);
         }
 
         public async Task CreateBooking(Booking booking)
         {
             await mainContext.Bookings.AddAsync(booking ?? throw new ArgumentNullException(nameof(booking)));
+            await mainContext.RoomCalendars.AddRangeAsync(booking.RoomCalendars ?? throw new ArgumentNullException(nameof(booking)));
             await mainContext.SaveChangesAsync();
         }
     }

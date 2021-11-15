@@ -9,5 +9,6 @@ namespace HotelBookingLibrary.Repositories.Interfaces
         Task<Hotel> GetHotel(int id);
         Task<IEnumerable<Hotel>> GetHotels();
         Task<IEnumerable<Hotel>> SearchHotels(string name);
+        Task<IEnumerable<HotelRoom>> GetHotelRooms(int id);
     }
 }

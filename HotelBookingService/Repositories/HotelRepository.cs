@@ -31,7 +31,12 @@ namespace HotelBookingLibrary.Repositories
 
         public async Task<Hotel> GetHotel(int id)
         {
-            return await mainContext.Hotels.SingleOrDefaultAsync(x => x.HotelId == id);
+            return await mainContext.Hotels.Include(x => x.Bookings).SingleOrDefaultAsync(x => x.HotelId == id);
+        }
+
+        public async Task<IEnumerable<HotelRoom>> GetHotelRooms(int id)
+        {
+            return await mainContext.HotelRooms.Where(x => x.Hotel.HotelId == id).Include(x => x.RoomType).Include(x => x.Hotel).ToListAsync();
         }
     }
 }
